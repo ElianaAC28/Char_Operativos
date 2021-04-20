@@ -1,20 +1,20 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include<stdio.h>
-#include<stdlib.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include<unistd.h>
+#include <unistd.h>
 
 /*Quien recibe conexiones (el servidor) enviará al cliente unmensaje de bienvenida, después del cual, el cliente deberáenviar un mensaje, y el servidor deberá recibir. Esteproceso terminará cuando en el servidor o en el cliente elusuario ingrese un mensaje con el texto /exit".
 */
 
-#define MSGSIZE 512
-void handle_connection(int c);
 
+
+void * hilo_teclado(void *arg);
+int s;
 int main (int argc, char * argv[]){
-	int s;
 	int port;
 	struct sockaddr_in addr;
 	
@@ -29,6 +29,7 @@ int main (int argc, char * argv[]){
 	port=0;
 	if(argc =3){
 		port = atoi(argv[2]);
+		printf("usando puerto %d\n",port);
 	}
 	if(port<=0){
 		fprintf(stderr, "Puerto %s invalido\n", argv[2]);
@@ -49,27 +50,29 @@ if (connect (s, (struct sockaddr*)&addr, sizeof(struct sockaddr_in)) != 0) {
 	perror("connect");
 	exit(EXIT_FAILURE);
 }
-	handle_connection(s);
+	
 	close(s);
 	exit(EXIT_SUCCESS);
 	
 	}
 
-	void handle_connection(int s) {
-	char buf[MSGSIZE];
-	int finished;
-//Recibir mensaje de bienvenida del servidor
-	memset(buf, 0, MSGSIZE);
-	read(s, buf, MSGSIZE);
-	printf("Server sent: %s\n", buf);
-	finished = 0;  
-	while (!finished) {
+	
+	
 //TODO leer texto por la entrada estandar
 //TODO enviar texto al servidor
 ///TODO si el texto leido comienza por "/exit", terminar.
 ///TODO leer mensaje del servidor
 //TODO si el mensaje del cliente comienza por "/exit",terminar.
 
-	}
-	close (s);
-	}
+	
+/**
+ * @brief Lee lineas del teclado y las escribe al socket de servidor*/
+
+void * hilo_teclado(void *arg){
+	char linea [80];
+	while(1){
+	memset(linea,0,80);
+	fgets(linea, 80, stdin); //leer linea
+	write(s, linea, 80); // escribir linea en el socket
+	}	
+}

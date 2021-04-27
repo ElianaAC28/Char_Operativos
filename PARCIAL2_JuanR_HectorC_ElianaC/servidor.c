@@ -48,7 +48,7 @@ void adicionar(int c);
 int buscar(int c);
 void eliminar(int c);
 void imprimir();
-
+void MySignal(int sig);
 /*
  * Funciones del semaforo
  * */
@@ -61,6 +61,8 @@ typedef struct{
 }message;
 
 void MySignal(int sig){
+char buf [MSGSIZE];
+int finished;
 	message *men=(message*)malloc(sizeof(message));
 	men->clientId = -1;
 	strcpy(men->message,"Servidor Finalizado\n");
@@ -70,6 +72,7 @@ void MySignal(int sig){
 			close(clients[i]);
 		}
 	}
+	
 	printf("Servidor Finalizado \n");
 	close(s);
 	exit(EXIT_SUCCESS);
@@ -154,7 +157,7 @@ int main(int argc, char * argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-	printf("Socket listo, esperando conexiones\n");
+	printf("¡El Socket listo! Está esperando conexiones...\n");
 	//Recibir la conexion del cliente
 	clients = (socket_t*)malloc(size * sizeof(socket_t));
 	sem_init(&mutex,0,1);
@@ -170,7 +173,7 @@ int main(int argc, char * argv[]) {
 		}
 
 
-	printf("Notificación:¡Se ha conectado un cliente!\n");
+	printf("Notificación:¡Se ha conectado el cliente %d !\n",c);
 
 		down(&mutex);
 		adicionar(c);
@@ -198,6 +201,7 @@ void *handle_connection(void *arg) {
 	pthread_create(&read_m,NULL,leer,&c);
 	pthread_join(read_m,NULL);
 
+	printf("Notificación: ¡El cliente %d se desconecto!\n",c);
 	close(c);
 }
 
@@ -219,7 +223,9 @@ void *leer(void * arg){
 				eliminar(c);
 				up(&mutex);
 				finished = 1;
-			
+	
+	close(c);
+	signal(SIGTERM,MySignal);
 		}
 		/**
 		* Replicar el mensaje a todos los clientes

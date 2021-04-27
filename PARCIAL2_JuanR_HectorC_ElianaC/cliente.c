@@ -1,3 +1,8 @@
+/*
+	Programa cliente del chat
+*/
+
+#include <pthread.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -7,72 +12,113 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-/*Quien recibe conexiones (el servidor) enviará al cliente unmensaje de bienvenida, después del cual, el cliente deberáenviar un mensaje, y el servidor deberá recibir. Esteproceso terminará cuando en el servidor o en el cliente elusuario ingrese un mensaje con el texto /exit".
-*/
 
+#define MSGSIZE 512
+void handle_connection(int c);
+void *leer(void * arg);
 
+typedef struct{
+	int clientId;
+	char message[MSGSIZE];
+}message;
 
-void * hilo_teclado(void *arg);
-int s;
-int main (int argc, char * argv[]){
-	int port;
+int main(int argc, char * argv[]) {
+	int s;
+	int puerto;
+	char *ip;
+	
+	if(argc != 3){
+		fprintf(stderr,"Por favor especificar el puerto y el ip para le cliente\n");
+		exit(EXIT_FAILURE);
+	}
+
+	puerto = atoi(argv[1]);
+	ip = argv[2];
 	struct sockaddr_in addr;
 	
-	//Crear el socket
-	//dominio=IPv4, socket de flujo, protocolo por defecto
-	s= socket(PF_INET, SOCK_STREAM, 0);
-	if ( s < 0) {
-	perror("socket");
-		exit(EXIT_FAILURE);
-}
-	//2. Asociar el socket a una direcci�n (IPv4)
-	port=0;
-	if(argc =3){
-		port = atoi(argv[2]);
-		printf("usando puerto %d\n",port);
-	}
-	if(port<=0){
-		fprintf(stderr, "Puerto %s invalido\n", argv[2]);
+	if ( (s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("socket");
 		exit(EXIT_FAILURE);
 	}
-	//limpiar y configurar la direci�n a enlazar 
 	memset(&addr, 0, sizeof(struct sockaddr_in));
-	
-	addr.sin_family = AF_INET;	//Familia de direciones IPv4
-	addr.sin_port = htons(port);// Puerto 1111 con los bytes en orden de red
-	//TODO tomar la IP de los argumentos del main!
-	if (inet_aton("127.0.0.1",&addr.sin_addr) == 0) {
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(puerto);
+	//tomar la IP 
+	if (inet_aton(ip,&addr.sin_addr) == 0) {
 		fprintf(stderr, "Invalid address!\n");
 		exit(EXIT_FAILURE);
 	}
-	//Conectar el servidor
-if (connect (s, (struct sockaddr*)&addr, sizeof(struct sockaddr_in)) != 0) {
-	perror("connect");
-	exit(EXIT_FAILURE);
-}
-	
+	/**
+	 * Conectar al servidor
+	 * */
+	if (connect (s, (struct sockaddr *)&addr, sizeof(struct
+		sockaddr_in)) != 0) {
+		perror("connect");
+		exit(EXIT_FAILURE);
+	}
+	pthread_t read_m;
+	pthread_create(&read_m,NULL,leer,&s);
+	handle_connection(s);
 	close(s);
 	exit(EXIT_SUCCESS);
-	
-	}
-
-	
-	
-//TODO leer texto por la entrada estandar
-//TODO enviar texto al servidor
-///TODO si el texto leido comienza por "/exit", terminar.
-///TODO leer mensaje del servidor
-//TODO si el mensaje del cliente comienza por "/exit",terminar.
-
-	
-/**
- * @brief Lee lineas del teclado y las escribe al socket de servidor*/
-
-void * hilo_teclado(void *arg){
-	char linea [80];
-	while(1){
-	memset(linea,0,80);
-	fgets(linea, 80, stdin); //leer linea
-	write(s, linea, 80); // escribir linea en el socket
-	}	
 }
+
+void handle_connection(int s) {
+	char buf[MSGSIZE];
+	int finished;
+	message *men=(message*)malloc(sizeof(message));
+	memset(buf, 0, MSGSIZE);
+	memset(men->message,0,MSGSIZE);
+	read(s, men->message, MSGSIZE);
+	printf("Mensaje del servidor: %s\n", men->message);
+	finished = 0;
+	
+	while (!finished) {
+		//TODO leer texto por la entrada estandar
+		memset(buf, 0, MSGSIZE);
+		memset(men->message,0,MSGSIZE);
+		fgets(men->message,MSGSIZE,stdin);
+		//TODO enviar texto al servidor
+		if(write(s,men,sizeof(message))<0){
+			continue;
+		}
+
+		if(strncmp(men->message,"/exit",5) == 0){
+			finished = 1;
+		} 
+	}
+	close(s);
+}
+
+void *leer(void * arg){
+	char buf[MSGSIZE];
+	int finished;
+	int s =*(int*)arg;
+	finished = 0;
+	message *men=(message*)malloc(sizeof(message));
+	while(!finished){
+		memset(buf,0,MSGSIZE);
+		memset(men->message,0,MSGSIZE);
+		if(read(s,men,sizeof(message)) <= 0){
+			exit(EXIT_SUCCESS);
+		}else{
+			if(men->clientId == -1){
+				if(strncmp(men->message,"/exit",5)==0){
+					exit(EXIT_SUCCESS);
+					finished = 1;	
+				}
+			}
+		}
+		if(men->clientId == -1){
+			printf("Mensaje del servidor: %s \n",men->message);
+		}else{
+			printf("El cliente %d envia:  %s",men->clientId,men->message);
+		}
+		
+	}
+}
+
+
+
+
+
